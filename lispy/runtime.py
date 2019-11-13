@@ -17,9 +17,9 @@ def eval(x, env=None):
     
     # Avalia tipos atômicos
     if isinstance(x, Symbol):
-        return NotImplemented
+        return env[x]
     elif isinstance(x, (int, float, bool, str)):
-        return NotImplemented
+        return x
 
     # Avalia formas especiais e listas
     head, *args = x
@@ -27,32 +27,80 @@ def eval(x, env=None):
     # Comando (if <test> <then> <other>)
     # Ex: (if (even? x) (quotient x 2) x)
     if head == Symbol.IF:
-        return NotImplemented
+        (condition, then, alternative) = args
+        expression = (then if eval(condition, env) else alternative)
+        return eval(expression, env)
 
     # Comando (define <symbol> <expression>)
     # Ex: (define x (+ 40 2))
     elif head == Symbol.DEFINE:
-        return NotImplemented
+        variable, value_or_expression = args
+        new_thing = eval(value_or_expression, env)
+        env[Symbol(variable)] = new_thing
+        return None
 
     # Comando (quote <expression>)
     # (quote (1 2 3))
     elif head == Symbol.QUOTE:
-        return NotImplemented
+        result = []
+        arguments = args[0]
+        if isinstance(arguments,list) :
+            for x in args[0]:
+                if isinstance(x, (int, float, bool, str)):
+                    result.append(eval(x,env))
+                else:
+                    result.append(Symbol(x))
+        else:
+            return arguments
+        return result
 
     # Comando (let <expression> <expression>)
     # (let ((x 1) (y 2)) (+ x y))
     elif head == Symbol.LET:
-        return NotImplemented
+        sub_env = ChainMap({}, global_env)# pegar as funções sem ter que copiar todo o env
+        declarations,expr = args
+        for declaration in declarations:
+            eval([Symbol.DEFINE, declaration[0], declaration[1]], sub_env)
+
+        result = eval(expr, sub_env)
+        return result
 
     # Comando (lambda <vars> <body>)
     # (lambda (x) (+ x 1))
     elif head == Symbol.LAMBDA:
-        return NotImplemented
+        if len(args) == 1:
+            print(args[0])
+            parameters,expr = args[0]
+        else:
+            parameters,expr = args
+        result = None
+        print("parameters: ", parameters)
+        if any(isinstance(parameter, (float, int, bool)) for parameter in parameters):
+            raise TypeError
+        local_ctx = ChainMap({}, global_env)
+        def new_fun(*arguments):
+            arguments = list(arguments)
+            for parameter_number in range(len(parameters)):
+                if len(arguments) > 0:
+                    local_ctx[parameters[parameter_number]] = arguments[parameter_number]
+                else :
+                    local_ctx[parameters[parameter_number]] = arguments
+            return eval(expr, local_ctx)
+        return new_fun
 
     # Lista/chamada de funções
     # (sqrt 4)
+    elif head == Symbol.ADD:
+        x, y = args
+        return eval(x, env) + eval(y, env)
+
+    elif head == Symbol.SUB:
+        x, y = args
+        return eval(x, env) - eval(y, env)
     else:
-       return NotImplemented
+        env_function = eval(head, env)
+        arguments = (eval(arg,env) for arg in x[1:])
+        return env_function(*arguments)
 
 
 #
